@@ -6,18 +6,18 @@ A portfolio project by **Mahesh M**: a Kimball-style dimensional model for healt
 
 ## What it does
 
-1. **Stage** (`scripts/generate_source.py`): synthetic source-system tables (`src_members`, `src_providers`, `src_payers`, `src_claims`, `src_claim_lines`): 600 members, 60 providers, 3,000 claims, 7,460 service lines across 2025.
-2. **Model** (`sql/star.sql`, `sql/etl.sql`): a star schema - `dim_member`, `dim_provider`, `dim_payer`, `dim_date` and `fact_claim_line` (grain: one claim service line). ETL is pure SQL: deduped dimension loads with surrogate keys, a recursive-CTE date spine, and a key-resolving fact load.
-3. **Test** (`sql/tests.sql`): 13 data tests - unique keys, fact-to-dimension referential integrity, accepted values, no negative amounts, paid <= allowed, denied lines carry zero payment, fact row count matches staging. Any failure exits non-zero.
+1. **Stage** (`scripts/generate_source.py`): synthetic source-system tables (`src_members`, `src_providers`, `src_payers`, `src_claims`, `src_claim_lines`): 600 members (30 with a mid-year ZIP change), 60 providers, 3,000 claims, 7,457 service lines across 2025.
+2. **Model** (`sql/star.sql`, `sql/etl.sql`): a star schema - `dim_member` (Type 2 SCD: ~5% of members change ZIP mid-year, so member versions carry effective/expiry intervals and the fact load joins the version in force on the service date), `dim_provider`, `dim_payer`, `dim_date` and `fact_claim_line` (grain: one claim service line). ETL is pure SQL: window-function version chains, a recursive-CTE date spine, and a key-resolving fact load.
+3. **Test** (`sql/tests.sql`): 15 data tests - unique keys, SCD2 interval integrity (no overlaps, one current version per member), fact-to-dimension referential integrity, accepted values, no negative amounts, paid <= allowed, denied lines carry zero payment, fact row count matches staging. Any failure exits non-zero.
 4. **Report** (`sql/marts.sql`): monthly denial rate by payer, top providers by collections, allowed-to-billed ratio by payer.
 
 ## Headline results (seed 42)
 
 | KPI | Value |
 |---|---|
-| Fact rows | 7,460 |
+| Fact rows | 7,457 |
 | Denial rate | 12.5% |
-| Data tests | 13 / 13 PASS |
+| Data tests | 15 / 15 PASS |
 
 Full build log and mart output in [`sample_output.md`](sample_output.md).
 
@@ -47,7 +47,7 @@ scripts/build_model.py      stage -> build -> test -> marts
 
 ## Possible extensions
 
-SCD Type 2 dimensions for member and provider attributes, incremental fact loads with a watermark, dbt-style test configuration, and a BI semantic layer over the marts.
+SCD Type 2 for provider attributes, incremental fact loads with a watermark, dbt-style test configuration, and a BI semantic layer over the marts.
 
 ---
 Author: Mahesh M. Released under the MIT License.
