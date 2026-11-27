@@ -28,7 +28,7 @@ def generate(db_path="claims.db"):
     con = sqlite3.connect(db_path)
     with open(__file__.replace("generate_source.py", "").replace("scripts/", "") + "sql/staging.sql") as f:
         con.executescript(f.read())
-    for t in ("src_claim_lines","src_claims","src_members","src_providers","src_payers"):
+    for t in ("src_claim_lines","src_claims","src_members","src_member_updates","src_providers","src_payers"):
         con.execute(f"DELETE FROM {t}")
 
     members = []
@@ -41,6 +41,16 @@ def generate(db_path="claims.db"):
             str(rng.choice([20001,20002,20003,20005,20009,20010,20011,20024,20036,20037])),
         ))
     con.executemany("INSERT INTO src_members VALUES (?,?,?,?,?,?)", members)
+
+    # Attribute changes: ~5% of members move ZIP mid-year (drives the SCD2 demo).
+    updates = []
+    for m in rng.sample(members, 30):
+        updates.append((
+            m[0],
+            str(rng.choice([20001,20002,20003,20005,20009,20010,20011,20024,20036,20037])),
+            (date(2025,3,1) + timedelta(days=rng.randrange(180))).isoformat(),
+        ))
+    con.executemany("INSERT INTO src_member_updates VALUES (?,?,?)", updates)
 
     providers = []
     for i in range(N_PROVIDERS):
