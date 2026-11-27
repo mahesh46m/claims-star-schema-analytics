@@ -1,12 +1,18 @@
 -- Star schema: dimensions + one line-grain fact table.
+-- Type 2 slowly changing dimension: one row per member version, with
+-- effective/expiry half-open intervals and a current-version flag.
 CREATE TABLE IF NOT EXISTS dim_member (
   member_key INTEGER PRIMARY KEY,
-  member_id  TEXT NOT NULL UNIQUE,
+  member_id  TEXT NOT NULL,
   first_name TEXT NOT NULL,
   last_name  TEXT NOT NULL,
   dob        TEXT NOT NULL,
   gender     TEXT NOT NULL,
-  zip_code   TEXT NOT NULL
+  zip_code   TEXT NOT NULL,
+  effective_date TEXT NOT NULL,
+  expiry_date    TEXT NOT NULL,   -- '9999-12-31' for the current version
+  is_current INTEGER NOT NULL,
+  UNIQUE (member_id, effective_date)
 );
 
 CREATE TABLE IF NOT EXISTS dim_provider (
