@@ -6,10 +6,30 @@ DELETE FROM dim_provider;
 DELETE FROM dim_payer;
 DELETE FROM dim_date;
 
-INSERT INTO dim_member (member_key, member_id, first_name, last_name, dob, gender, zip_code)
-SELECT ROW_NUMBER() OVER (ORDER BY member_id),
-       member_id, first_name, last_name, dob, gender, zip_code
-FROM src_members;
+-- SCD2: base version effective at the epoch plus one version per update.
+WITH versions AS (
+  SELECT member_id, first_name, last_name, dob, gender, zip_code,
+         DATE('2024-01-01') AS effective_date
+  FROM src_members
+  UNION ALL
+  SELECT u.member_id, m.first_name, m.last_name, m.dob, m.gender, u.zip_code,
+         u.effective_date
+  FROM src_member_updates u
+  JOIN src_members m ON m.member_id = u.member_id
+),
+ordered AS (
+  SELECT v.*,
+         LEAD(effective_date) OVER (PARTITION BY member_id ORDER BY effective_date) AS next_eff
+  FROM versions v
+)
+INSERT INTO dim_member (member_key, member_id, first_name, last_name, dob, gender,
+                        zip_code, effective_date, expiry_date, is_current)
+SELECT ROW_NUMBER() OVER (ORDER BY member_id, effective_date),
+       member_id, first_name, last_name, dob, gender, zip_code,
+       effective_date,
+       COALESCE(DATE(next_eff, '-1 day'), '9999-12-31'),
+       CASE WHEN next_eff IS NULL THEN 1 ELSE 0 END
+FROM ordered;
 
 INSERT INTO dim_provider (provider_key, provider_id, npi, practice_name, specialty)
 SELECT ROW_NUMBER() OVER (ORDER BY provider_id),
@@ -56,5 +76,6 @@ SELECT ROW_NUMBER() OVER (ORDER BY cl.claim_id, cl.line_no),
 FROM src_claim_lines cl
 JOIN src_claims   c   ON c.claim_id = cl.claim_id
 JOIN dim_member   dm  ON dm.member_id = c.member_id
+                     AND cl.service_date BETWEEN dm.effective_date AND dm.expiry_date
 JOIN dim_provider dp  ON dp.provider_id = c.provider_id
 JOIN dim_payer    dpy ON dpy.payer_id = c.payer_id;
