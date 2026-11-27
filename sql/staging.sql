@@ -8,6 +8,12 @@ CREATE TABLE IF NOT EXISTS src_members (
   zip_code    TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS src_member_updates (
+  member_id     TEXT NOT NULL REFERENCES src_members(member_id),
+  zip_code      TEXT NOT NULL,
+  effective_date TEXT NOT NULL      -- when the new ZIP took effect
+);
+
 CREATE TABLE IF NOT EXISTS src_providers (
   provider_id  TEXT PRIMARY KEY,
   npi          TEXT NOT NULL,       -- synthetic, not a real NPI
