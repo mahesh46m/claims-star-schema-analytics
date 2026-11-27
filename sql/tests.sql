@@ -10,6 +10,16 @@ SELECT COUNT(*) - COUNT(DISTINCT provider_key) FROM dim_provider;
 -- test: dim_date full_date unique
 SELECT COUNT(*) - COUNT(DISTINCT full_date) FROM dim_date;
 
+-- test: no overlapping member intervals
+SELECT COUNT(*) FROM dim_member a
+JOIN dim_member b ON a.member_id = b.member_id AND a.member_key < b.member_key
+WHERE a.effective_date <= b.expiry_date AND b.effective_date <= a.expiry_date;
+
+-- test: exactly one current version per member
+SELECT COUNT(*) FROM (
+  SELECT member_id FROM dim_member GROUP BY member_id HAVING SUM(is_current) <> 1
+);
+
 -- test: fact grain unique (claim_id, line_no)
 SELECT COUNT(*) FROM (
   SELECT claim_id, line_no FROM fact_claim_line
